@@ -1,0 +1,6 @@
+[submodule "pndabuild"]
+	path = pndabuild
+	url = https://github.com/krickwix/pndabuild
+[submodule "pnda-cli"]
+	path = pnda-cli
+	url = https://github.com/krickwix/pnda-cli
