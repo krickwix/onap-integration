@@ -4,3 +4,6 @@
 [submodule "pnda-cli"]
 	path = pnda-cli
 	url = https://github.com/krickwix/pnda-cli
+[submodule "oom"]
+	path = oom
+	url = https://gerrit.onap.org/r/oom
