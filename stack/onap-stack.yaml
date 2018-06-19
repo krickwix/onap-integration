@@ -1,0 +1,175 @@
+heat_template_version: 2015-04-30
+
+parameters:
+  centos_image:
+    type: string
+    description: UUID or name of a centos7 cloud image
+  external_network:
+    type: string
+    description: UUID or name of the external network
+  # repo_flavor:
+  #   type: string
+  #   description: UUID or name of the PNDA repo builder instance flavour
+  orch_flavor:
+    type: string
+    description: UUID or name of the orchestration instance flavour
+  name_servers:
+    type: comma_delimited_list
+  key_name:
+    type: string
+
+resources:
+  integ_network:
+    type: OS::Neutron::Net
+    properties:
+      name:
+        str_replace:
+          template: '%stackname%_publicNetwork'
+          params:
+            '%stackname%': { get_param: 'OS::stack_name' }
+  integ_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: integ_network }
+      cidr: 192.168.0.0/24
+      dns_nameservers: { get_param: name_servers }
+  integ_router:
+    type: OS::Neutron::Router
+    properties:
+      name:
+        str_replace:
+          template: '%stackname%_integ_router'
+          params:
+            '%stackname%': { get_param: 'OS::stack_name' }
+      external_gateway_info:
+        network: { get_param: external_network }
+  integ_network_router_interface:
+    type: OS::Neutron::RouterInterface
+    depends_on: [ integ_subnet ]
+    properties:
+      router_id: { get_resource: integ_router }
+      subnet_id: { get_resource: integ_subnet }
+  orch_secgroup:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name:
+        str_replace:
+          template: '%stackname%_orch'
+          params:
+            '%stackname%': { get_param: 'OS::stack_name' }
+      rules:
+        - protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
+          remote_ip_prefix: 0.0.0.0/0
+        - protocol: tcp
+          port_range_min: 80
+          port_range_max: 80
+          remote_ip_prefix: 0.0.0.0/0
+        - protocol: tcp
+          port_range_min: 5671
+          port_range_max: 5671
+          remote_ip_prefix: 192.168.0.0/24
+        - protocol: tcp
+          port_range_min: 53229
+          port_range_max: 53229
+          remote_ip_prefix: 192.168.0.0/24
+        - protocol: tcp
+          port_range_min: 53333
+          port_range_max: 53333
+          remote_ip_prefix: 192.168.0.0/24
+  orch_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: { get_param: external_network }
+      port_id: { get_resource: orch_server_port }
+  orch_server_port:
+    type: OS::Neutron::Port
+    properties:
+      network: { get_resource: integ_network }
+      fixed_ips:
+        - subnet_id: { get_resource: integ_subnet }
+      security_groups: [{ get_resource: orch_secgroup }]
+  orch_server:
+    type: OS::Nova::Server
+    properties:
+      name:
+        str_replace:
+          template: '%stackname%_orch_server'
+          params:
+            '%stackname%': { get_param: 'OS::stack_name' }
+      image: { get_param: centos_image }
+      flavor: { get_param: orch_flavor }
+      key_name: { get_param: key_name }
+      networks:
+        - port: { get_resource: orch_server_port }
+  # repo_secgroup:
+  #   type: OS::Neutron::SecurityGroup
+  #   properties:
+  #     name:
+  #       str_replace:
+  #         template: '%stackname%_pndarepo'
+  #         params:
+  #           '%stackname%': { get_param: 'OS::stack_name' }
+  # package_builder:
+  #   type: OS::Nova::Server
+  #   properties:
+  #     name:
+  #       str_replace:
+  #         template: '%stackname%_package_builder'
+  #         params:
+  #           '%stackname%': { get_param: 'OS::stack_name' }
+  #     image: { get_param: centos_image }
+  #     flavor: { get_param: repo_flavor }
+  #     key_name: { get_param: key_name }
+  #     networks:
+  #       - network: { get_resource: integ_network }
+  #     user_data_format: RAW
+  #     user_data:
+  #       get_resource: package_builder_init
+  # mirror_builder:
+  #   type: OS::Nova::Server
+  #   properties:
+  #     name:
+  #       str_replace:
+  #         template: '%stackname%_mirror_builder'
+  #         params:
+  #           '%stackname%': { get_param: 'OS::stack_name' }
+  #     image: { get_param: centos_image }
+  #     flavor: { get_param: repo_flavor }
+  #     key_name: { get_param: key_name }
+  #     networks:
+  #       - network: { get_resource: integ_network }
+  # repo_server:
+  #   type: OS::Nova::Server
+  #   properties:
+  #     name:
+  #       str_replace:
+  #         template: '%stackname%_repo_server'
+  #         params:
+  #           '%stackname%': { get_param: 'OS::stack_name' }
+  #     image: { get_param: centos_image }
+  #     flavor: { get_param: repo_flavor }
+  #     key_name: { get_param: key_name }
+  #     networks:
+  #       - network: { get_resource: integ_network }
+  # package_builder_init:
+  #   type: OS::Heat::CloudConfig
+  #   properties:
+  #     cloud_config:
+  #       write_files:
+  #         - content: |
+  #             #!/bin/bash
+  #             sudo yum -y install git
+  #             git clone https://github.com/pndaproject/pnda ~/pnda
+  #             sudo yum -y remove git
+  #             cd ~/pnda/build
+  #             host_line="127.0.1.1 $(hostname)"
+  #             echo $host_line | sudo tee -a /etc/hosts
+  #             sudo ./install-build-tools.sh
+  #             . set-pnda-env.sh
+  #             ./build-pnda.sh BRANCH develop
+  #           path: /tmp/build.sh
+  #           permissions: 0777
+  #       runcmd: 
+  #         - /tmp/build.sh
