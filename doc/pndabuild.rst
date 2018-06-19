@@ -41,11 +41,9 @@ Start building the mirror as a super-user
 
 .. code-block:: shell
 
-   sudo -s
-   ./create_mirror_rpm.sh && ./create_mirror_misc.sh && \
-   ./create_mirror_hdp.sh && ./create_mirror_python.sh && \
-   ./create_mirror_apps.sh
-
+   sudo ./create_mirror_rpm.sh && sudo ./create_mirror_misc.sh && \
+   sudo ./create_mirror_hdp.sh && sudo ./create_mirror_python.sh && \
+   sudo ./create_mirror_apps.sh
 
 PNDA apps
 #########
@@ -60,18 +58,14 @@ You should still be a super-user to install the base tools
 
 .. code-block:: shell
 
-   ./install-build-tools.sh
-
-Get back to a non privileged user
-
-.. code-block:: shell
-
-   logout
+    echo "127.0.1.1 $(hostname)"|sudo tee -a /etc/hosts
+    sudo ./install-build-tools.sh
 
 Start building the pnda apps
 
 .. code-block:: shell
 
+   . set-pnda-env.sh
    ./build-pnda.sh BRANCH develop
 
 Serving the result of the build

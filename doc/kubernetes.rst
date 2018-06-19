@@ -12,8 +12,10 @@ Install the cloudify manager
 
 .. code-block:: shell
 
+    sudo yum -y install wget
     wget http://repository.cloudifysource.org/cloudify/4.3.2/ga-release/cloudify-docker-manager-4.3.2ga.tar -O /tmp/cloudify-docker-manager-4.3.2ga.tar
     sudo docker load -i /tmp/cloudify-docker-manager-4.3.2ga.tar
+    sudo setenforce 0
     sudo docker run --name cfy_manager -d --restart unless-stopped -v /sys/fs/cgroup:/sys/fs/cgroup:ro --tmpfs /run --tmpfs /run/lock --security-opt seccomp:unconfined --cap-add SYS_ADMIN --network host docker-cfy-manager:latest
     myip=$(ip a |grep eth0|grep global|awk {'print $2'}|cut -d/ -f1)
 
